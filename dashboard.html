@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Olympics Analysis Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            overflow: hidden;
+            height: 100vh;
+            color: #fff;
+        }
+
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            grid-template-rows: 80px 1fr;
+            height: 100vh;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 30px;
+            font-size: 0.9rem;
+        }
+
+        .header-stat span {
+            display: block;
+            font-size: 1.4rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            max-height: calc(100vh - 120px);
+        }
+
+        .sidebar h3 {
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 3px solid #3b82f6;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+        }
+
+        .stat-card:hover {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%);
+            transform: translateX(8px) scale(1.02);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+            border-left-color: #60a5fa;
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin-bottom: 3px;
+        }
+
+        .stat-card .value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 15px;
+            overflow: hidden;
+        }
+
+        .chart-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .chart-card:hover {
+            transform: translateY(-8px) scale(1.01);
+            box-shadow: 0 15px 50px rgba(59, 130, 246, 0.3);
+        }
+
+        .chart-card h3 {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .chart-container {
+            position: relative;
+            height: calc(100% - 35px);
+        }
+
+        .insight-tooltip {
+            position: absolute;
+            top: 50px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            max-width: 250px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+
+        .chart-card:hover .insight-tooltip {
+            opacity: 1;
+        }
+
+        .medal-colors {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+
+        .medal-colors span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .medal-colors .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .gold { background: #ffd700; }
+        .silver { background: #c0c0c0; }
+        .bronze { background: #cd7f32; }
+
+        @media (max-width: 1400px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr;
+            }
+
+            .sidebar {
+                grid-column: 1;
+            }
+
+            .main-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(6, 300px);
+                overflow-y: auto;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 215, 0, 0.5);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 215, 0, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏅 Olympics Analysis Dashboard</h1>
+            <div class="header-stats">
+                <div class="header-stat">
+                    <div>Time Period</div>
+                    <span>1896-2016</span>
+                </div>
+                <div class="header-stat">
+                    <div>Olympics</div>
+                    <span>29</span>
+                </div>
+                <div class="header-stat">
+                    <div>Athletes</div>
+                    <span>135K+</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h3>📊 Key Statistics</h3>
+
+            <div class="stat-card">
+                <div class="label">Editions</div>
+                <div class="value">28</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Host Cities</div>
+                <div class="value">23</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Total Sports</div>
+                <div class="value">52</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Total Events</div>
+                <div class="value">651</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Participating Nations</div>
+                <div class="value">206</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Total Athletes</div>
+                <div class="value">116,122</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Total Records</div>
+                <div class="value">271K+</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Gender Ratio (2016)</div>
+                <div class="value">45:55</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Most Decorated Athlete</div>
+                <div class="value">M. Phelps</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Peak Age</div>
+                <div class="value">24-28</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">Most Medals (Sport)</div>
+                <div class="value">Athletics</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="label">First Olympics</div>
+                <div class="value">Athens 1896</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Chart 1: Top Medal Countries -->
+            <div class="chart-card">
+                <h3>🏆 Top 10 Medal Winning Countries</h3>
+                <div class="insight-tooltip">
+                    💡 USA leads with 5,600+ medals. USSR/Russia and Germany show strong consistency across decades.
+                </div>
+                <div class="chart-container">
+                    <canvas id="medalChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Participation Growth -->
+            <div class="chart-card">
+                <h3>📈 Nations & Athletes Over Time</h3>
+                <div class="insight-tooltip">
+                    💡 Massive growth from 14 nations (1896) to 206+ (2016). Female participation grew from 0% to 45%.
+                </div>
+                <div class="chart-container">
+                    <canvas id="growthChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Age Distribution -->
+            <div class="chart-card">
+                <h3>👤 Age Distribution of Medalists</h3>
+                <div class="insight-tooltip">
+                    💡 Peak performance age: 24-28 years. Gymnasts peak younger (18-22), while equestrians peak later (30-35).
+                </div>
+                <div class="chart-container">
+                    <canvas id="ageChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: Sport Medals -->
+            <div class="chart-card">
+                <h3>🎯 Top Sports by Medal Count</h3>
+                <div class="insight-tooltip">
+                    💡 Athletics dominates with 3,000+ medals. Swimming and gymnastics follow due to multiple event opportunities.
+                </div>
+                <div class="chart-container">
+                    <canvas id="sportChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 5: Gender Participation -->
+            <div class="chart-card">
+                <h3>⚖️ Gender Participation Growth</h3>
+                <div class="insight-tooltip">
+                    💡 Women's participation grew from 2% (1900) to 45% (2016). Major milestone: 2012 was first Olympics with female athletes from all nations.
+                </div>
+                <div class="chart-container">
+                    <canvas id="genderChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 6: Top Athletes -->
+            <div class="chart-card">
+                <h3>🌟 Most Decorated Athletes</h3>
+                <div class="insight-tooltip">
+                    💡 Michael Phelps leads with 28 medals (23 gold). Larisa Latynina holds the record for most decorated female athlete with 18 medals.
+                </div>
+                <div class="chart-container">
+                    <canvas id="athleteChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart configurations
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#fff',
+                        font: { size: 11 }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    ticks: { color: '#fff', font: { size: 10 } },
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#fff', font: { size: 10 } },
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                }
+            }
+        };
+
+        // Chart 1: Top Medal Countries
+        new Chart(document.getElementById('medalChart'), {
+            type: 'bar',
+            data: {
+                labels: ['USA', 'USSR', 'Germany', 'UK', 'France', 'Italy', 'Sweden', 'China', 'Australia', 'Hungary'],
+                datasets: [{
+                    label: 'Gold',
+                    data: [2638, 1010, 937, 678, 501, 460, 483, 543, 368, 432],
+                    backgroundColor: '#ffd700',
+                    borderRadius: 8,
+                    borderSkipped: false
+                }, {
+                    label: 'Silver',
+                    data: [1641, 1127, 908, 739, 610, 531, 503, 425, 441, 345],
+                    backgroundColor: '#c0c0c0',
+                    borderRadius: 8,
+                    borderSkipped: false
+                }, {
+                    label: 'Bronze',
+                    data: [1358, 1197, 1260, 738, 716, 531, 535, 357, 455, 421],
+                    backgroundColor: '#cd7f32',
+                    borderRadius: 8,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                ...chartOptions,
+                scales: {
+                    ...chartOptions.scales,
+                    x: { ...chartOptions.scales.x, stacked: true },
+                    y: { ...chartOptions.scales.y, stacked: true }
+                }
+            }
+        });
+
+        // Chart 2: Growth Over Time
+        new Chart(document.getElementById('growthChart'), {
+            type: 'line',
+            data: {
+                labels: ['1896', '1920', '1936', '1952', '1968', '1984', '2000', '2016'],
+                datasets: [{
+                    label: 'Nations',
+                    data: [14, 29, 49, 69, 112, 140, 199, 207],
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'rgba(96, 165, 250, 0.2)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#60a5fa',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }, {
+                    label: 'Athletes (hundreds)',
+                    data: [2.41, 28.83, 38.84, 48.89, 56.29, 66.00, 101.02, 115.47],
+                    borderColor: '#a78bfa',
+                    backgroundColor: 'rgba(167, 139, 250, 0.2)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#a78bfa',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: chartOptions
+        });
+
+        // Chart 3: Age Distribution
+        new Chart(document.getElementById('ageChart'), {
+            type: 'line',
+            data: {
+                labels: ['15-17', '18-20', '21-23', '24-26', '27-29', '30-32', '33-35', '36+'],
+                datasets: [{
+                    label: 'Gold Medalists',
+                    data: [320, 1240, 1850, 2100, 1680, 980, 520, 310],
+                    borderColor: '#fbbf24',
+                    backgroundColor: 'rgba(251, 191, 36, 0.3)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }, {
+                    label: 'All Medalists',
+                    data: [450, 1680, 2450, 2780, 2240, 1380, 720, 450],
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'rgba(96, 165, 250, 0.3)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: chartOptions
+        });
+
+        // Chart 4: Sport Medals
+        new Chart(document.getElementById('sportChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Athletics', 'Swimming', 'Gymnastics', 'Rowing', 'Wrestling', 'Cycling', 'Others'],
+                datasets: [{
+                    data: [3200, 2100, 1850, 1200, 950, 850, 4850],
+                    backgroundColor: [
+                        '#3b82f6',
+                        '#8b5cf6',
+                        '#ec4899',
+                        '#f59e0b',
+                        '#10b981',
+                        '#06b6d4',
+                        '#64748b'
+                    ],
+                    borderWidth: 3,
+                    borderColor: '#1e293b',
+                    hoverBorderColor: '#fff',
+                    hoverBorderWidth: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: '#fff',
+                            font: { size: 10 },
+                            padding: 10
+                        }
+                    }
+                }
+            }
+        });
+
+        // Chart 5: Gender Participation
+        new Chart(document.getElementById('genderChart'), {
+            type: 'line',
+            data: {
+                labels: ['1900', '1920', '1948', '1972', '1988', '2000', '2008', '2016'],
+                datasets: [{
+                    label: 'Male %',
+                    data: [97.7, 95.8, 90.3, 85.7, 73.9, 61.2, 57.8, 55],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#3b82f6',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }, {
+                    label: 'Female %',
+                    data: [2.3, 4.2, 9.7, 14.3, 26.1, 38.8, 42.2, 45],
+                    borderColor: '#ec4899',
+                    backgroundColor: 'rgba(236, 72, 153, 0.2)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 3,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#ec4899',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: chartOptions
+        });
+
+        // Chart 6: Top Athletes
+        new Chart(document.getElementById('athleteChart'), {
+            type: 'bar',
+            data: {
+                labels: ['M. Phelps', 'L. Latynina', 'N. Andrianov', 'B. Fischer', 'T. Dityatin', 'S. Mangiarotti', 'A. Nemov', 'T. Ono'],
+                datasets: [{
+                    label: 'Total Medals',
+                    data: [28, 18, 15, 13, 13, 13, 12, 12],
+                    backgroundColor: [
+                        '#ffd700',
+                        '#ffd700',
+                        '#c0c0c0',
+                        '#c0c0c0',
+                        '#cd7f32',
+                        '#cd7f32',
+                        '#60a5fa',
+                        '#60a5fa'
+                    ],
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                ...chartOptions,
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        ticks: { color: '#fff', font: { size: 10 } },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#fff', font: { size: 9 } },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
